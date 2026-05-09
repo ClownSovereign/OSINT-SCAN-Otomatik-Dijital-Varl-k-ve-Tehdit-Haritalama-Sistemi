@@ -23,16 +23,22 @@ The project utilizes a hybrid architecture to balance high-performance scanning 
 | **SQLite** | Data Persistence | Enables relational querying to find connections between disparate data points (e.g., Email ↔ Leak). |
 | **Streamlit** | Dashboard UI | Provides a professional, web-based interface for data visualization without heavy frontend overhead. |
 
-## 🧠 Risk Scoring Algorithm ($ARF$)
+### 🧠 Advanced Threat Scoring Algorithm ($TP$)
 
-The scientific core of the project is the **Weighted Risk Factor ($ARF$)** formula. It transforms raw data into a measurable security metric:
+The project uses a multi-factor weighting system to calculate the **Total Threat Power ($TP$)**. This formula accounts for both the presence of vulnerabilities and their frequency, with defined saturation limits for each category to ensure a balanced risk assessment:
 
-$$ARF = (W \times 0.1) + (S \times 0.3) + (P \times 0.2) + (L \times 0.4)$$
+$$TP = W(10) + S(30 \times n, \text{max } 90) + P(20 \times n, \text{max } 60) + L(8 \times n, \text{max } 40) + D(5 \times n, \text{max } 20)$$
 
-*   **W (Whois):** Exposure level of domain registration details.
-*   **S (Leakage):** Presence of credentials in historical data breaches.
-*   **P (Ports):** Discovery of critical open services (e.g., SSH, RDP, FTP).
-*   **L (Links):** The strength of connections found between social media and professional profiles.
+**Variable Definitions:**
+
+*   **$W$ (Whois Data):** Base risk if domain registration data is publicly exposed (+10).
+*   **$S$ (Data Leaks):** Number of unique data breaches ($n$) identified. Each leak adds 30 points, capped at a maximum of 90.
+*   **$P$ (Critical Ports):** Number of open critical ports ($n$) detected (e.g., SSH, RDP, FTP). Each adds 20 points, capped at 60.
+*   **$L$ (Linked Accounts):** Verified connections between different social/professional digital profiles ($n$). Each adds 8 points, capped at 40.
+*   **$D$ (Google Dorks):** Sensitive files or indexed directories found via advanced Dorking techniques ($n$). Each adds 5 points, capped at 20.
+
+**Why this scoring model?**
+The implementation of "saturation caps" (max limits) prevents a single vulnerability type from disproportionately inflating the threat level. This ensures a more holistic and scientific approach to digital risk analysis, which is a core requirement for the **TÜBİTAK** research methodology.
 
 ## 🛠️ Methodology
 
