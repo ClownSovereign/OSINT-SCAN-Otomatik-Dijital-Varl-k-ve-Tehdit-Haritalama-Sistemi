@@ -1,0 +1,15 @@
+# Gizli anahtarlar — asla commit edilmez
+.env
+
+# Python önbelleği
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Veritabanı (isteğe bağlı — geliştirme DB'si commit edilmez)
+osint_scan.db
+
+# Geçici dosyalar
+*.tmp
+*.pdf
