@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────
+# OSINT-SCAN — Bağımlılıklar
+# Kurulum: pip install -r requirements.txt
+# Python >= 3.10 gereklidir
+# ─────────────────────────────────────────────
+
+# Arayüz
+streamlit>=1.35.0
+
+# Görselleştirme
+plotly>=5.22.0
+matplotlib>=3.7.0
+
+# Veri işleme
+pandas>=2.0.0
+networkx>=3.2.0
+
+# OSINT modülleri
+python-whois>=0.9.4
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# PDF rapor
+reportlab>=4.0.0
+
+# Güvenli config yönetimi (.env desteği)
+python-dotenv>=1.0.0
+dnspython>=2.4.0  # opsiyonel — dig/nslookup yoksa DNS sorguları için
