@@ -35,10 +35,10 @@ $$TP = W(10) + S(30 \times n, \text{max } 90) + P(20 \times n, \text{max } 60) +
 *   **$S$ (Data Leaks):** Number of unique data breaches ($n$) identified. Each leak adds 30 points, capped at a maximum of 90.
 *   **$P$ (Critical Ports):** Number of open critical ports ($n$) detected (e.g., SSH, RDP, FTP). Each adds 20 points, capped at 60.
 *   **$L$ (Linked Accounts):** Verified connections between different social/professional digital profiles ($n$). Each adds 8 points, capped at 40.
-*   **$D$ (Google Dorks):** Sensitive files or indexed directories found via advanced Dorking techniques ($n$). Each adds 5 points, capped at 20.
+*   **$D$ (DNS Risks):** Critical DNS configuration errors ($n$) such as missing SPF/DMARC records, Zone Transfer (AXFR) vulnerabilities, or orphaned subdomains. Each adds 5 points, capped at 20.
 
 **Why this scoring model?**
-The implementation of "saturation caps" (max limits) prevents a single vulnerability type from disproportionately inflating the threat level. This ensures a more holistic and scientific approach to digital risk analysis, which is a core requirement for the **TÜBİTAK** research methodology.
+The implementation of "saturation caps" (max limits) prevents a single vulnerability type from disproportionately inflating the threat level. By replacing general search queries with structured **DNS Security Analysis**, the model focuses on technical infrastructure misconfigurations, providing a more objective and scientific risk assessment—a key requirement for the **TÜBİTAK** research methodology.
 
 ## 🛠️ Methodology
 
