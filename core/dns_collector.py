@@ -33,7 +33,6 @@ def ensure_dns_table():
         conn.execute(DNS_TABLE_SQL)
 
 
-# ─── Yardımcı: sistem dig/nslookup ile sorgu ────────────────────────────────
 
 def _query(domain: str, rtype: str) -> list[str]:
     """
@@ -43,7 +42,6 @@ def _query(domain: str, rtype: str) -> list[str]:
     """
     results = []
     try:
-        # dig varsa (Linux/Mac)
         out = subprocess.check_output(
             ["dig", "+short", rtype, domain],
             timeout=5, stderr=subprocess.DEVNULL
@@ -56,7 +54,6 @@ def _query(domain: str, rtype: str) -> list[str]:
                 ["nslookup", "-type=" + rtype, domain],
                 timeout=5, stderr=subprocess.DEVNULL
             ).decode()
-            # nslookup çıktısından değerleri ayıkla
             for line in out.splitlines():
                 line = line.strip()
                 if "=" in line and not line.startswith("Server"):
@@ -64,7 +61,6 @@ def _query(domain: str, rtype: str) -> list[str]:
                     if val:
                         results.append(val)
         except Exception:
-            # Son çare: socket ile sadece A kaydı
             if rtype == "A":
                 try:
                     results = [socket.gethostbyname(domain)]
@@ -73,7 +69,6 @@ def _query(domain: str, rtype: str) -> list[str]:
     return results
 
 
-# ─── Risk analizi ────────────────────────────────────────────────────────────
 
 def _analyze_txt(records: list[str]) -> list[str]:
     """TXT kayıtlarında SPF, DKIM, DMARC eksikliği tespit eder."""
@@ -94,7 +89,6 @@ def _analyze_txt(records: list[str]) -> list[str]:
     return notes
 
 
-# ─── Ana fonksiyon ───────────────────────────────────────────────────────────
 
 def collect_dns(scan_id: int, domain: str) -> dict:
     """
@@ -120,7 +114,6 @@ def collect_dns(scan_id: int, domain: str) -> dict:
 
         for record in records:
             priority = 0
-            # MX kaydından öncelik değerini ayıkla (örn: "10 mail.example.com")
             if rtype == "MX":
                 parts = record.split()
                 if len(parts) == 2 and parts[0].isdigit():
@@ -133,11 +126,9 @@ def collect_dns(scan_id: int, domain: str) -> dict:
                     VALUES (?, ?, ?, ?)
                 """, (scan_id, rtype, record, priority))
 
-    # TXT kayıtlarında güvenlik analizi
     txt_notes = _analyze_txt(all_results.get("TXT", []))
     risk_notes.extend(txt_notes)
 
-    # MX yoksa posta alınamaz — bilgi notu
     if not all_results.get("MX"):
         risk_notes.append("MX kaydı yok — domain e-posta almıyor olabilir")
 
@@ -149,7 +140,6 @@ def collect_dns(scan_id: int, domain: str) -> dict:
                 VALUES (?, ?, ?, ?)
             """, (scan_id, "RISK", "", note))
 
-    # D skoru: her risk notu +5 puan, max 20
     risk_score = min(len(risk_notes) * 5, 20)
 
     return {
