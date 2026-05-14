@@ -8,9 +8,6 @@ import random
 from core.db import get_conn
 from core.config import SHODAN_API_KEY, CRITICAL_PORTS, GO_SCANNER_URL
 
-# ─────────────────────────────────────────────
-# WHOIS
-# ─────────────────────────────────────────────
 
 def collect_whois(scan_id: int, domain: str) -> dict:
     try:
@@ -33,9 +30,6 @@ def collect_whois(scan_id: int, domain: str) -> dict:
         return {"error": str(e)}
 
 
-# ─────────────────────────────────────────────
-# SIZINTI KONTROLÜ — 3 katmanlı
-# ─────────────────────────────────────────────
 
 LEAKCHECK_URL = "https://leakcheck.io/api/public"
 EMAILREP_URL  = "https://emailrep.io"
@@ -118,9 +112,6 @@ def collect_leaks(scan_id: int, email: str) -> list:
     return results
 
 
-# ─────────────────────────────────────────────
-# SOSYAL MEDYA — IP ban korumalı
-# ─────────────────────────────────────────────
 
 PLATFORMS = {
     "Twitter":   "https://twitter.com/{}",
@@ -138,7 +129,6 @@ NOT_FOUND_HINTS = {
     "Reddit":    ["nobody on reddit goes by that name"],
 }
 
-# Farklı User-Agent'lar — aynı UA ile art arda istek ban riskini artırır
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15",
@@ -161,7 +151,6 @@ def collect_social(scan_id: int, username: str) -> list:
         url   = url_template.format(username)
         found = False
 
-        # Rotasyon: her platform için farklı UA
         ua = USER_AGENTS[i % len(USER_AGENTS)]
 
         try:
@@ -177,7 +166,6 @@ def collect_social(scan_id: int, username: str) -> list:
             )
 
             if resp.status_code == 429:
-                # Rate limit — bu platformu atla
                 results.append({"platform": platform, "url": url,
                                  "found": False, "note": "rate_limited"})
                 continue
@@ -198,7 +186,6 @@ def collect_social(scan_id: int, username: str) -> list:
 
         results.append({"platform": platform, "url": url, "found": found})
 
-        # İstekler arası rastgele bekleme — bot tespitini engeller
         if i < len(PLATFORMS) - 1:
             time.sleep(random.uniform(1.0, 2.5))
 
@@ -206,9 +193,6 @@ def collect_social(scan_id: int, username: str) -> list:
     return results
 
 
-# ─────────────────────────────────────────────
-# PORT TARAMA — Shodan & Go
-# ─────────────────────────────────────────────
 
 def collect_ports_shodan(scan_id: int, domain: str) -> list:
     if not SHODAN_API_KEY:
