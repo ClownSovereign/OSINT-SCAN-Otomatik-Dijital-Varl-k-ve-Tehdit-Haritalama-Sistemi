@@ -5,6 +5,8 @@ import tempfile
 import os
 import random
 import time
+from dotenv import load_dotenv
+load_dotenv()  
 
 from core.db import init_db, get_conn
 from core.go_runner import ensure_go_scanner
@@ -12,11 +14,9 @@ from core.collector import collect_whois, collect_leaks, collect_social, collect
 from core.dns_collector import collect_dns
 from core.subdomain_scanner import collect_subdomains
 from core.risk_engine import calculate_risk, build_attack_scenarios
-from core.report import generate_pdf
+from core.report import generate_summary_pdf, generate_leak_pdf, generate_port_pdf, generate_dns_pdf
+from core.ai_analyst import analyze_scan, generate_ai_scenarios, chat as ai_chat
 
-# ─────────────────────────────────────────────
-# Sayfa yapılandırması
-# ─────────────────────────────────────────────
 st.set_page_config(
     page_title="OSINT-SCAN | TÜBİTAK",
     page_icon="🔍",
@@ -24,7 +24,6 @@ st.set_page_config(
 )
 init_db()
 
-# Go servisini başlat
 if "go_status" not in st.session_state:
     with st.spinner("⚙️ Go tarayıcı motoru başlatılıyor..."):
         st.session_state["go_status"] = ensure_go_scanner()
@@ -38,20 +37,14 @@ if not st.session_state["go_status"]["ok"]:
 st.title("🔍 OSINT-SCAN — Dijital Varlık ve Tehdit Haritalama Sistemi")
 st.caption("TÜBİTAK 2204-A Proje Portalı | Otomatik Açık Kaynak İstihbarat Analizi")
 
-# ─────────────────────────────────────────────
-# Sekmeler
-# ─────────────────────────────────────────────
-sekme_tarama, sekme_dns, sekme_subdomain, sekme_gecmis = st.tabs([
+sekme_tarama, sekme_dns, sekme_subdomain, sekme_ai, sekme_gecmis = st.tabs([
     "🛰️ Yeni Tarama",
     "🌐 DNS Analizi",
     "🔎 Subdomain Tarama",
+    "🤖 AI Analist",
     "🗂️ Geçmiş Taramalar",
 ])
 
-
-# ══════════════════════════════════════════════
-# SEKME 1 — YENİ TARAMA
-# ══════════════════════════════════════════════
 with sekme_tarama:
 
     with st.sidebar:
@@ -79,7 +72,7 @@ with sekme_tarama:
         st.markdown(f"{go_icon} Port Taraması (Go)")
         st.markdown("✅ Risk Skoru Hesaplama")
         st.markdown("---")
-        baslat = st.button("🚀 Taramayı Başlat", type="primary", use_container_width=True)
+        baslat = st.button("🚀 Taramayı Başlat", type="primary", width='stretch')
 
     if baslat and target:
         with get_conn() as conn:
@@ -131,7 +124,6 @@ with sekme_tarama:
     elif baslat and not target:
         st.sidebar.error("⚠️ Lütfen bir hedef girin.")
 
-    # Sonuç paneli
     if "son_tarama" in st.session_state:
         scan_id = st.session_state["son_tarama"]
         risk    = st.session_state["risk"]
@@ -180,7 +172,7 @@ with sekme_tarama:
                               "thickness": 0.75, "value": risk["total"]}
             }
         ))
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        st.plotly_chart(fig_gauge, width='stretch')
 
         st.info(f"📐 **Tehdit Puanı Formülü:** {risk['formula']}")
         with st.expander("ℹ️ Formül Hakkında Bilgi"):
@@ -196,35 +188,57 @@ with sekme_tarama:
             st.markdown("**Risk Seviyeleri:** 0-40 Düşük | 40-80 Orta | 80-150 Yüksek | 150+ Kritik")
 
         st.markdown("---")
-        st.subheader("📄 Rapor")
-        if st.button("📥 PDF Rapor Oluştur ve İndir"):
-            with st.spinner("Rapor hazırlanıyor..."):
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
-                    yol = generate_pdf(scan_id, f.name)
-                with open(yol, "rb") as f:
-                    st.download_button(
-                        label="⬇️ Raporu Bilgisayara Kaydet",
-                        data=f,
-                        file_name=f"osint_rapor_{scan_id}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-                os.unlink(yol)
+        st.subheader("📄 Raporlar")
+
+        def _pdf_indir(uretici, dosya_adi, buton_adi):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
+                yol = uretici(scan_id, f.name)
+            with open(yol, "rb") as f:
+                veri = f.read()
+            os.unlink(yol)
+            st.download_button(
+                label=buton_adi,
+                data=veri,
+                file_name=dosya_adi,
+                mime="application/pdf",
+                width="stretch",
+                key=dosya_adi
+            )
+
+        st.markdown("**📋 Ana Özet Raporu** — Risk skoru, hızlı bakış ve modül özetleri")
+        if st.button("📥 Özet Raporu İndir", key="btn_ozet", type="primary"):
+            with st.spinner("Özet rapor hazırlanıyor..."):
+                _pdf_indir(generate_summary_pdf, f"ozet_rapor_{scan_id}.pdf", "⬇️ Özet Raporu Kaydet")
+
+        st.markdown("**💧 Sızıntı & Sosyal Medya Raporu** — WHOIS, veri sızıntıları, sosyal hesaplar")
+        if st.button("📥 Sızıntı Raporunu İndir", key="btn_leak"):
+            with st.spinner("Sızıntı raporu hazırlanıyor..."):
+                _pdf_indir(generate_leak_pdf, f"sizinti_rapor_{scan_id}.pdf", "⬇️ Sızıntı Raporunu Kaydet")
+
+        st.markdown("**🔌 Port Tarama Raporu** — Açık portlar, kritik servisler")
+        if st.button("📥 Port Raporunu İndir", key="btn_port"):
+            with st.spinner("Port raporu hazırlanıyor..."):
+                _pdf_indir(generate_port_pdf, f"port_rapor_{scan_id}.pdf", "⬇️ Port Raporunu Kaydet")
+
+        st.markdown("**🌐 DNS & Subdomain Raporu** — DNS kayıtları, güvenlik sorunları, subdomainler")
+        if st.button("📥 DNS Raporunu İndir", key="btn_dns"):
+            with st.spinner("DNS raporu hazırlanıyor..."):
+                _pdf_indir(generate_dns_pdf, f"dns_rapor_{scan_id}.pdf", "⬇️ DNS Raporunu Kaydet")
 
         st.markdown("---")
         if st.session_state.get("senaryolar"):
             st.subheader("⚠️ Tespit Edilen Olası Saldırı Senaryoları")
             for i, s in enumerate(st.session_state["senaryolar"], 1):
-                with st.expander(f"🎯 Senaryo {i}: {s['tür']}"):
+                ai_badge = " 🤖" if s.get("ai") else ""
+                with st.expander(f"🎯 Senaryo {i}: {s['tür']}{ai_badge}"):
                     st.error(f"**📌 Kaynak:** {s['kaynak']}")
                     st.warning(f"**📋 Açıklama:** {s['açıklama']}")
+                    if s.get("önlem"):
+                        st.success(f"**🛡️ Önlem:** {s['önlem']}")
         else:
             st.success("✅ Herhangi bir saldırı senaryosu tespit edilmedi.")
 
 
-# ══════════════════════════════════════════════
-# SEKME 2 — DNS ANALİZİ
-# ══════════════════════════════════════════════
 with sekme_dns:
     st.subheader("🌐 DNS Kayıt Analizi")
 
@@ -257,7 +271,6 @@ with sekme_dns:
 
             st.markdown("---")
 
-            # Kayıt türlerine göre göster
             for rtype in ("A", "MX", "NS", "TXT"):
                 kayitlar = [r for r in dns_rows if r[0] == rtype]
                 if kayitlar:
@@ -267,9 +280,6 @@ with sekme_dns:
                             st.code(f"{r[1]}{oncelik}")
 
 
-# ══════════════════════════════════════════════
-# SEKME 3 — SUBDOMAIN TARAMA
-# ══════════════════════════════════════════════
 with sekme_subdomain:
     st.subheader("🔎 Subdomain Keşfi")
 
@@ -306,19 +316,89 @@ with sekme_subdomain:
                 df_hassas = pd.DataFrame(
                     [{"Subdomain": r[0], "IP": r[1], "Durum": "⚠️ Hassas"} for r in hassas]
                 )
-                st.dataframe(df_hassas, use_container_width=True, hide_index=True)
+                st.dataframe(df_hassas, width='stretch', hide_index=True)
 
             if normal:
                 with st.expander(f"Normal Subdomainler ({len(normal)} adet)"):
                     df_normal = pd.DataFrame(
                         [{"Subdomain": r[0], "IP": r[1]} for r in normal]
                     )
-                    st.dataframe(df_normal, use_container_width=True, hide_index=True)
+                    st.dataframe(df_normal, width='stretch', hide_index=True)
 
 
-# ══════════════════════════════════════════════
-# SEKME 4 — GEÇMİŞ TARAMALAR
-# ══════════════════════════════════════════════
+
+with sekme_ai:
+    st.subheader("🤖 Yapay Zeka Analist")
+
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        st.warning(
+            "⚠️ GEMINI_API_KEY tanımlanmamış.\n\n"
+            "1. [Google AI Studio](https://aistudio.google.com/apikey) adresinden ücretsiz API anahtarı alın\n"
+            "2. `.env` dosyasına `GEMINI_API_KEY=...` satırını ekleyin\n"
+            "3. Uygulamayı yeniden başlatın"
+        )
+    elif "son_tarama" not in st.session_state:
+        st.info("Önce \'Yeni Tarama\' sekmesinden bir tarama başlatın.")
+    else:
+        scan_id = st.session_state["son_tarama"]
+
+        st.markdown("### 📊 Otomatik Tarama Yorumu")
+        if st.button("🔍 AI ile Analiz Et", type="primary", width='stretch'):
+            with st.spinner("🤖 Gemini analiz yapıyor..."):
+                analiz = analyze_scan(scan_id)
+                st.session_state["ai_analiz"] = analiz
+
+        if "ai_analiz" in st.session_state:
+            st.markdown(st.session_state["ai_analiz"])
+
+        st.markdown("---")
+
+        st.markdown("### ⚔️ AI Destekli Saldırı Senaryoları")
+        if st.button("🎯 AI Senaryoları Üret", width='stretch'):
+            with st.spinner("🤖 Senaryolar üretiliyor..."):
+                ai_senaryolar = generate_ai_scenarios(scan_id)
+                if ai_senaryolar:
+                    # Mevcut senaryolara AI senaryolarını ekle
+                    mevcut = st.session_state.get("senaryolar", [])
+                    ai_yeni = [s for s in ai_senaryolar
+                               if s["tür"] not in {m["tür"] for m in mevcut}]
+                    st.session_state["senaryolar"] = mevcut + ai_yeni
+                    st.success(f"✅ {len(ai_yeni)} yeni AI senaryosu eklendi!")
+                    st.info("Senaryoları \'Yeni Tarama\' sekmesinde görüntüleyin.")
+                else:
+                    st.info("Mevcut bulgular için ek senaryo üretilemedi.")
+
+        st.markdown("---")
+
+        st.markdown("### 💬 Tarama Hakkında Soru Sor")
+
+        if "chat_gecmis" not in st.session_state:
+            st.session_state["chat_gecmis"] = []
+
+        for msg in st.session_state["chat_gecmis"]:
+            with st.chat_message("user" if msg["rol"] == "kullanici" else "assistant"):
+                st.markdown(msg["mesaj"])
+
+        if soru := st.chat_input("Tarama sonucu hakkında bir şey sorun..."):
+            st.session_state["chat_gecmis"].append({"rol": "kullanici", "mesaj": soru})
+            with st.chat_message("user"):
+                st.markdown(soru)
+
+            with st.chat_message("assistant"):
+                with st.spinner("🤖 Düşünüyor..."):
+                    yanit = ai_chat(
+                        scan_id,
+                        soru,
+                        st.session_state["chat_gecmis"][:-1]
+                    )
+                st.markdown(yanit)
+                st.session_state["chat_gecmis"].append({"rol": "asistan", "mesaj": yanit})
+
+        if st.session_state["chat_gecmis"]:
+            if st.button("🗑️ Sohbeti Temizle", width='stretch'):
+                st.session_state["chat_gecmis"] = []
+                st.rerun()
 with sekme_gecmis:
     st.subheader("🗂️ Geçmiş Taramalar")
 
@@ -354,14 +434,17 @@ with sekme_gecmis:
             lambda x: f"{seviye_emoji.get(x,'⚪')} {x}"
         )
         df.columns = ["ID","Hedef","Tür","Tarih","Toplam Puan","Risk Seviyesi"]
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Toplam Puan sütununu string'e zorla — '-' değeri Arrow'u bozuyor
+        df["Toplam Puan"] = df["Toplam Puan"].astype(str)
+        df["ID"] = df["ID"].astype(int)
+        st.dataframe(df, width='stretch', hide_index=True)
 
         st.markdown("---")
         st.markdown("**Geçmiş taramayı görüntüle:**")
         secili_id = st.number_input("Tarama ID", min_value=1,
                                     max_value=int(df["ID"].max()), step=1,
                                     label_visibility="collapsed")
-        if st.button("📂 Bu Taramayı Yükle", use_container_width=True):
+        if st.button("📂 Bu Taramayı Yükle", width='stretch'):
             with get_conn() as conn:
                 risk_row = conn.execute("""
                     SELECT score_w, score_s, score_p, score_l, total, risk_level
