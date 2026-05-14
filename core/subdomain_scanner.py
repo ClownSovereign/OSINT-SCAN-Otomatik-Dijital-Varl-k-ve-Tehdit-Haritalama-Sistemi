@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.db import get_conn
 
 
-# ─── DB tablosu ─────────────────────────────────────────────────────────────
 
 SUBDOMAIN_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS subdomain_results (
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS subdomain_results (
 );
 """
 
-# Hassas subdomain'ler — admin panelleri, geliştirme ortamları vs.
 SENSITIVE_KEYWORDS = {
     "admin", "panel", "dev", "test", "staging", "beta",
     "api", "internal", "vpn", "mail", "ftp", "ssh",
@@ -32,7 +30,6 @@ SENSITIVE_KEYWORDS = {
     "kibana", "elastic", "mongo", "redis", "db", "database",
 }
 
-# Yaygın subdomain wordlist'i (500 adet — hızlı ama kapsamlı)
 WORDLIST = [
     "www", "mail", "ftp", "smtp", "pop", "imap", "webmail",
     "api", "api2", "api3", "v1", "v2", "rest",
@@ -131,6 +128,5 @@ def collect_subdomains(scan_id: int, domain: str, max_workers: int = 50) -> list
                         result["is_sensitive"],
                     ))
 
-    # Hassas olanları başa al
     found.sort(key=lambda x: (not x["is_sensitive"], x["subdomain"]))
     return found
