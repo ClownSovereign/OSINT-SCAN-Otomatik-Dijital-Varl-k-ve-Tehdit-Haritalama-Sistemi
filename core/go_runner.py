@@ -20,8 +20,7 @@ def _is_running() -> bool:
     except requests.exceptions.ConnectionError:
         return False
     except Exception:
-        return True  # Bağlantı var ama farklı hata — servis çalışıyor
-
+        return True 
 
 def _find_go_binary() -> str | None:
     """Sistemde 'go' komutunun yerini bulur."""
@@ -40,11 +39,9 @@ def ensure_go_scanner() -> dict:
     """
     global _go_process
 
-    # Zaten çalışıyor mu?
     if _is_running():
         return {"ok": True}
 
-    # go komutu var mı?
     go_bin = _find_go_binary()
     if not go_bin:
         return {
@@ -55,14 +52,12 @@ def ensure_go_scanner() -> dict:
             )
         }
 
-    # scanner/ klasörü var mı?
     if not GO_SCANNER_DIR.exists():
         return {
             "ok": False,
             "error": f"scanner/ klasörü bulunamadı: {GO_SCANNER_DIR}"
         }
 
-    # Go servisini arka planda başlat
     try:
         _go_process = subprocess.Popen(
             [go_bin, "run", "main.go"],
@@ -73,7 +68,6 @@ def ensure_go_scanner() -> dict:
     except Exception as e:
         return {"ok": False, "error": f"Go servisi başlatılamadı: {e}"}
 
-    # Hazır olana kadar bekle (max 10 saniye)
     for _ in range(20):
         time.sleep(0.5)
         if _is_running():
